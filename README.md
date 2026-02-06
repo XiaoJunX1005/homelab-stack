@@ -1,194 +1,318 @@
-# homelab-stack
+```md
+# Homelab Stack（Proxmox / Ubuntu VM / Docker Compose）
 
-這個 repo 用來管理我的 HomeLab Docker Stack（VM 上的 Ubuntu），目前包含：
-
-- **Homepage**：Lab 首頁 / Dashboard（`home.local`）
-- **Portainer**：容器管理（建議透過 Nginx Proxy Manager 轉發成 `portainer.local`）
-- **Nginx Proxy Manager (NPM)**：反向代理管理（`10.1.2.19:81`）
-
-並提供：
-- `backup.sh`：備份（支援 `--stop`、`--encrypt`）
-- `restore.sh`：還原（支援還原 `.tgz` 或 `.tgz.age`）
-
-> ⚠️ 注意：Homepage/Portainer 掛載 `docker.sock` 代表容器具備「幾乎等同 root」的主機控制能力。請只在內網使用、不要對外開放，並妥善控管 VM 存取。
+這個 Repo 用來在 Proxmox 上的 Ubuntu VM（Docker Host）以 Docker Compose 部署常用 Homelab 服務（Homepage / Nginx Proxy Manager / Portainer），並提供備份與還原腳本，方便把整套環境（含 named volumes）打包保存。
 
 ---
 
-## 目錄結構
+## 目錄
 
+- [1. 服務總覽](#1-服務總覽)
+- [2. 架構與網路](#2-架構與網路)
+- [3. 目錄結構](#3-目錄結構)
+- [4. 需求與前置條件](#4-需求與前置條件)
+- [5. 安裝與部署](#5-安裝與部署)
+- [6. Homepage 設定](#6-homepage-設定)
+- [7. Nginx Proxy Manager（NPM）設定](#7-nginx-proxy-managernpm-設定)
+- [8. 更新與維護](#8-更新與維護)
+- [9. 備份（backup.sh）](#9-備份backupsh)
+- [10. 還原（restore.sh）](#10-還原restoresh)
+- [11. 常見問題與排錯](#11-常見問題與排錯)
+- [12. 安全注意事項](#12-安全注意事項)
+- [13. 快速指令小抄](#13-快速指令小抄)
 
+---
+
+## 1. 服務總覽
+
+本 Stack 目前包含：
+
+- **Homepage**（`ghcr.io/gethomepage/homepage`）
+  - 建議透過 NPM 反代提供 `http://home.local`
+- **Nginx Proxy Manager**（`jc21/nginx-proxy-manager`）
+  - 管理入口：`http://<DOCKER_HOST_IP>:81`
+- **Portainer CE**（`portainer/portainer-ce`）
+  - 管理入口：`http://<DOCKER_HOST_IP>:9000`
+  - 也可透過 NPM 反代 `http://portainer.local`
+
+> 重要：如果你沒有在 NPM 配好 SSL 憑證，就不要把 `http://xxx.local` 改成 `https://xxx.local`，會直接連不上。
+
+---
+
+## 2. 架構與網路
+
+- Proxmox：VM Host
+- Ubuntu VM：Docker Host（例：`10.1.2.19`）
+- Docker Compose：管理全部容器
+- 對外入口：通常由 NPM（80/443）負責反代
+- Homepage：通常不直接 publish 3000，改讓 NPM 反代到 `homepage:3000`
+
+### 2.1 DNS / hosts 建議
+
+如果你沒有內網 DNS（Pi-hole / AdGuard / Router DNS），可以先用 hosts：
+
+- `home.local` → `10.1.2.19`
+- `portainer.local` → `10.1.2.19`
+
+---
+
+## 3. 目錄結構
+
+```
 
 .
 ├─ docker-compose.yml
-├─ homepage-config/
-│ ├─ bookmarks.yaml
-│ ├─ custom.css
-│ ├─ custom.js
-│ ├─ docker.yaml
-│ ├─ kubernetes.yaml
-│ ├─ proxmox.yaml
-│ ├─ services.yaml
-│ ├─ settings.yaml
-│ ├─ widgets.yaml
-│ └─ logs/ (可選：建議不 commit)
+├─ deploy.sh
 ├─ backup.sh
 ├─ restore.sh
-└─ backups/ (不 commit)
+├─ .gitignore
+└─ homepage-config/
+├─ settings.yaml
+├─ services.yaml
+├─ widgets.yaml
+├─ bookmarks.yaml
+├─ docker.yaml
+├─ kubernetes.yaml
+├─ proxmox.yaml
+├─ custom.css
+├─ custom.js
+└─ logs/                 # Homepage runtime logs（不建議進版控）
 
+````
 
 ---
 
-## 需求
+## 4. 需求與前置條件
 
-- Ubuntu（VM）
-- Docker Engine + Docker Compose plugin
-- （可選，若要加密備份）`age`
-  ```bash
-  sudo apt update
-  sudo apt install -y age
+Ubuntu VM 需要：
 
-啟動服務
+- Docker Engine
+- Docker Compose v2（`docker compose ...`）
+- git
+- bash / tar
 
-在 repo 根目錄：
+---
 
-docker compose up -d
+## 5. 安裝與部署
+
+### 5.1 取得程式碼
+
+```bash
+git clone git@github.com:XiaoJunX1005/homelab-stack.git
+cd homelab-stack
+````
+
+### 5.2 啟動
+
+```bash
+chmod +x deploy.sh backup.sh restore.sh
+./deploy.sh
+```
+
+### 5.3 檢查
+
+```bash
+docker compose ps
+```
+
+---
+
+## 6. Homepage 設定
+
+Homepage 的設定檔用 bind mount：
+
+* Host：`./homepage-config`
+* Container：`/app/config`
+
+你常改的檔案：
+
+* `homepage-config/services.yaml`：卡片 / 服務清單
+* `homepage-config/widgets.yaml`：上方 widget（資源、時間、docker…）
+* `homepage-config/settings.yaml`：整體設定（title/theme/provider…）
+* `homepage-config/bookmarks.yaml`：書籤列
+
+### 6.1 Docker Provider（讓 Homepage 讀到容器狀態）
+
+建議設定（你目前已完成）：
+
+`homepage-config/widgets.yaml`
+
+```yaml
+- docker:
+    host: unix:///var/run/docker.sock
+```
+
+`homepage-config/settings.yaml`
+
+```yaml
+providers:
+  docker:
+    host: unix:///var/run/docker.sock
+```
+
+並確保 `docker-compose.yml` 有掛 socket（唯讀）：
+
+```yaml
+- /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+---
+
+## 7. Nginx Proxy Manager（NPM）設定
+
+### 7.1 Homepage（建議）
+
+新增 Proxy Host：
+
+* Domain Names：`home.local`
+* Scheme：`http`
+* Forward Hostname / IP：`homepage`
+* Forward Port：`3000`
+* Websockets Support：建議開
+* Block Common Exploits：建議開
+
+> 前提：NPM 與 Homepage 在同一個 compose network（同一份 `docker-compose.yml` 通常就 OK）。
+
+### 7.2 Portainer（無 TLS 先用 http）
+
+如果 NPM 沒有憑證，就先用：
+
+* `http://portainer.local`
+
+等你把 NPM 的 SSL（Let’s Encrypt / 自簽）搞定再切：
+
+* `https://portainer.local`
+
+---
+
+## 8. 更新與維護
+
+### 8.1 拉最新版本並重新部署
+
+```bash
+git pull
+./deploy.sh
+```
+
+### 8.2 只重啟某個服務
+
+```bash
+docker compose restart homepage
+docker compose restart npm
+docker compose restart portainer
+```
+
+---
+
+## 9. 備份（backup.sh）
+
+`backup.sh` 會把：
+
+* Repo 重要設定檔（docker-compose / homepage-config 等）
+* 以及指定的 Docker named volumes（例如 `*_npm_data`, `*_npm_letsencrypt`, `*_portainer_data`）
+
+打包成單一 `.tgz`，放在 `./backups/`。
+
+### 9.1 執行
+
+```bash
+./backup.sh
+```
+
+---
+
+## 10. 還原（restore.sh）
+
+`restore.sh` 用來從備份檔還原：
+
+* 會停止現有服務
+* 解壓備份
+* 覆寫並還原 volumes
+* 重新 `docker compose up -d`
+
+### 10.1 執行（需要 --force）
+
+```bash
+./restore.sh backups/<YOUR_BACKUP>.tgz --force
+```
+
+> 重要：還原會覆寫 volumes，請確認目標環境可接受被覆蓋。
+
+---
+
+## 11. 常見問題與排錯
+
+### 11.1 Homepage 顯示 Host validation failed
+
+log 會看到：
+
+```
+Host validation failed for: home.local
+Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable ...
+```
+
+解法：在 `docker-compose.yml` 的 homepage 增加（依你使用的 domain/IP 調整）：
+
+```yaml
+environment:
+  - HOMEPAGE_ALLOWED_HOSTS=home.local,10.1.2.19
+```
+
+然後重建：
+
+```bash
+docker compose up -d --force-recreate homepage
+```
+
+### 11.2 容器內沒有 curl / wget 不支援 unix-socket
+
+Homepage 容器可能沒有 `curl`，`wget` 也可能是 BusyBox 版不支援 `--unix-socket`，屬於正常。
+
+你可以用宿主機測：
+
+```bash
+sudo curl --unix-socket /var/run/docker.sock http://localhost/_ping
+sudo curl --unix-socket /var/run/docker.sock http://localhost/containers/json | head -c 200 && echo
+```
+
+或用容器內的 node 測（你已成功）：
+
+* GET `/_ping` 回 `OK`
+* GET `/containers/json` 拿到容器清單
+
+### 11.3 直接進 /var/lib/docker/volumes/.../_data 權限不足
+
+那是 Docker volumes 的 root 路徑，沒 sudo 會被擋。也不建議直接去那邊改。
+
+本 repo 改成 `./homepage-config:/app/config` 後，建議都在 repo 內改設定檔。
+
+---
+
+## 12. 安全注意事項
+
+* 不要把 API Key / Token 直接 commit
+* NPM 的資料（含憑證）在 volumes：`npm_data`、`npm_letsencrypt`
+* Docker socket 是高權限介面，掛載代表容器可讀 Docker 狀態；若要更嚴格可改 socket-proxy 做權限控管
+
+---
+
+## 13. 快速指令小抄
+
+```bash
+# 啟動 / 更新
+./deploy.sh
+
+# 查看狀態
 docker compose ps
 
-內網存取與網域
-方式 A：直接用 IP:Port
+# 看 log
+docker logs --tail 200 homepage
+docker logs --tail 200 nginx-proxy-manager
+docker logs --tail 200 portainer
 
-NPM：http://10.1.2.19:81
-
-Portainer：若你有暴露 port，依 compose 設定存取
-
-Homepage：若你有做 proxy host，通常走 home.local
-
-方式 B：使用 .local（搭配 DNS/hosts + NPM 反代）
-
-建議把：
-
-home.local → NPM → Homepage（container 3000）
-
-portainer.local → NPM → Portainer（通常 9000 或 9443）
-
-若你把連結都改成 https://xxx.local 但 NPM 沒替該 host 配好 SSL，就會「連不上」或瀏覽器拒絕連線。
-原則：沒簽憑證就用 http；有 SSL 才改 https。
-
-Homepage 設定檔
-
-Homepage config 位置在：
-
-./homepage-config/（此 repo 追蹤的設定檔）
-
-常用檔案：
-
-settings.yaml：標題、主題、providers 等
-
-services.yaml：你的卡片/群組（Infra/Containers/…）
-
-widgets.yaml：資源監控、datetime、docker widget 等
-
-修改完通常不需要重啟；若沒有即時生效，可：
-
-docker compose restart homepage
-docker logs --tail 80 homepage
-
-反向代理（Nginx Proxy Manager）注意事項
-Homepage Host validation（你之前遇到的 Host validation failed）
-
-Homepage 可能會拒絕不在允許清單內的 Host Header（例如 home.local），log 會看到：
-
-Host validation failed for: home.local
-
-做法是在 docker-compose.yml 的 homepage service 加環境變數（範例）：
-
-services:
-  homepage:
-    environment:
-      - HOMEPAGE_ALLOWED_HOSTS=home.local,10.1.2.19
-
-
-改完後：
-
-docker compose up -d --force-recreate homepage
-
-備份 / 還原
-備份內容包含：
-
-docker-compose.yml / .env（如果存在）/ deploy.sh（如果存在）/ README.md
-
-homepage-config/（預設排除 homepage-config/logs/，可用 --with-logs 加入）
-
-Docker volumes（自動從 docker compose config --volumes 擷取，抓不到才 fallback）
-
-<project> 預設是目前資料夾名稱（例如 stack），或你有設定 COMPOSE_PROJECT_NAME，亦可用 --project 覆寫。
-
-1) 一般備份（不中斷）
+# 備份
 ./backup.sh
 
-2) 停機備份（更一致）
-./backup.sh --stop
-
-3) 指定輸出位置或保留數量
-./backup.sh --dir ./backups --keep 5
-./backup.sh --target /path/to/homelab-stack_YYYYmmdd_HHMMSS.tgz
-
-4) 不備份 volumes 或包含 logs
-./backup.sh --no-volumes
-./backup.sh --with-logs
-
-5) 加密備份（支援 .tgz.age）
-./backup.sh --encrypt
-
-加密模式：
-若有設定 AGE_RECIPIENT：用 recipient 加密
-否則走 age -p（互動式密碼）
-
-備份會產生同名 .sha256 校驗檔（例：homelab-stack_YYYYmmdd_HHMMSS.tgz.sha256）。
-
-還原（支援 .tgz 或 .tgz.age）
-./restore.sh backups/<檔名>.tgz --force
-./restore.sh backups/<檔名>.tgz.age --force
-
-還原流程：
-若同目錄有 .sha256 會先驗證
-解壓 configs 到 ./_restore/<timestamp>/configs（不自動覆蓋 repo 內設定）
-還原 volumes（會清空後再解壓）
-預設會 docker compose up -d（可用 --no-start）
-
-常用還原選項：
---only-configs / --only-volumes / --dry-run / --project NAME
-
-Git / 雲端備份策略（建議）
-
-repo 只放「設定檔 + 腳本」
-
-**不要把 backups/、_restore/、.tgz、.tgz.age、.sha256 推上 GitHub**（可能含憑證/敏感資料）
-
-要做雲端備份：
-用 ./backup.sh --stop --encrypt 產生 .tgz.age
-把 .tgz.age 另外上傳到雲端（Google Drive / NAS / 私有物件儲存），或放私有物件儲存，不要與設定 repo 混在一起
-
-Troubleshooting
-1) Permission denied 讀 /var/lib/docker/volumes/...
-
-正常，Docker volumes 目錄通常需要 root：
-
-sudo ls -la /var/lib/docker/volumes/<name>/_data
-
-
-但建議用 bind mount（例如 ./homepage-config:/app/config），比較好用 VSCode 直接編輯。
-
-2) 容器內沒有 curl
-
-Homepage container 可能沒有 curl（你遇過 sh: curl: not found），這不是錯。
-要測 docker.sock 可以：
-
-在主機上用 curl --unix-socket ...
-
-或用 node/http 的方式（Homepage 內本來就有 node）
-
-3) https://xxx.local 連不上
-
-通常是 NPM 沒配置 SSL 或 Host 沒對到 Proxy Host。
-先用 http:// 確認可用，再上 SSL。
+# 還原（會覆寫 volumes）
+./restore.sh backups/<YOUR_BACKUP>.tgz --force
+```
