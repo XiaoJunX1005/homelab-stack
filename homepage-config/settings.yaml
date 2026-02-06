@@ -1,0 +1,13 @@
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/configs/settings/
+title: XiaoJun Lab
+theme: dark
+color: slate
+
+providers:
+  docker:
+    host: unix:///var/run/docker.sock
+    
+  openweathermap: openweathermapapikey
+  weatherapi: weatherapiapikey

@@ -1,0 +1,14 @@
+- resources:
+    cpu: true
+    memory: true
+    disk: /
+    uptime: true
+
+- datetime:
+    text_size: md
+    format:
+      timeStyle: short
+      dateStyle: short
+
+- docker:
+    host: unix:///var/run/docker.sock

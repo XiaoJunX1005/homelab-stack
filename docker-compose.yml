@@ -1,0 +1,39 @@
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "10.1.2.19:80:80"
+      - "10.1.2.19:81:81"
+      - "10.1.2.19:443:443"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+  
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    group_add:
+      - "984"
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: home.local,10.1.2.19,10.1.2.19:3000,localhost,127.0.0.1
+    volumes:
+      - ./homepage-config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+
+volumes:
+  portainer_data:
+  npm_data:
+  npm_letsencrypt:
+  homepage_data:

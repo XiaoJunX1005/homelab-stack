@@ -1,0 +1,31 @@
+- Infra:
+    - Proxmox:
+        icon: proxmox
+        href: https://10.1.2.103:8006
+        description: PVE Web UI
+
+    - Synology NAS:
+        icon: synology
+        href: http://10.1.2.61:5000
+        description: DSM 管理頁
+
+    - Nginx Proxy Manager:
+        icon: nginx
+        href: http://10.1.2.19:81
+        description: 反向代理管理
+
+- Containers:
+    - Portainer:
+        icon: portainer
+        href: http://portainer.local
+        description: 容器管理
+
+    - Homepage:
+        icon: homepage
+        href: http://home.local
+        description: Lab 首頁
+
+    - Docker Host (VM):
+        icon: ubuntu
+        href: http://10.1.2.19
+        description: Ubuntu VM

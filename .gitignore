@@ -1,0 +1,22 @@
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+.env
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Runtime / temp
+**/logs/
+**/*.log
+backups/
+tmp/
+
+# If you ever export NPM/Portainer data here, keep them out of git
+npm_data/
+npm_letsencrypt/
+portainer_data/
