@@ -20,3 +20,11 @@ tmp/
 npm_data/
 npm_letsencrypt/
 portainer_data/
+
+# homepage logs
+homepage-config/logs/
+homepage-config/**/logs/
+
+# general
+*.log
+.DS_Store
