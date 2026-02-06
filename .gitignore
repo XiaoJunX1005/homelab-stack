@@ -35,3 +35,15 @@ homepage-config/**/logs/
 # local backups
 backups/
 _restore/
+
+# backups / restore staging (do not commit)
+backups/
+_restore/
+*.tgz
+*.tar.gz
+*.tgz.age
+*.tar.gz.age
+
+# homepage runtime logs (optional)
+homepage-config/logs/
+
