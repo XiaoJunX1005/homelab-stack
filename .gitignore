@@ -31,3 +31,7 @@ homepage-config/**/logs/
 *.tgz
 *.tar.gz
 .DS_Store
+
+# local backups
+backups/
+_restore/
