@@ -30,6 +30,7 @@ homepage-config/**/logs/
 *.log
 *.tgz
 *.tar.gz
+*.sha256
 .DS_Store
 
 # local backups
@@ -43,7 +44,7 @@ _restore/
 *.tar.gz
 *.tgz.age
 *.tar.gz.age
+*.sha256
 
 # homepage runtime logs (optional)
 homepage-config/logs/
-

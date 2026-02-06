@@ -113,75 +113,61 @@ services:
 docker compose up -d --force-recreate homepage
 
 備份 / 還原
-備份內容包含
+備份內容包含：
 
-docker-compose.yml / .env（如果存在）/ deploy.sh（如果存在）
+docker-compose.yml / .env（如果存在）/ deploy.sh（如果存在）/ README.md
 
-homepage-config/（會排除 homepage-config/logs/）
+homepage-config/（預設排除 homepage-config/logs/，可用 --with-logs 加入）
 
-Docker volumes（若存在）：
+Docker volumes（自動從 docker compose config --volumes 擷取，抓不到才 fallback）
 
-<project>_portainer_data
-
-<project>_npm_data
-
-<project>_npm_letsencrypt
-
-<project>_homepage_data
-
-<project> 預設是目前資料夾名稱（例如 stack），或你有設定 COMPOSE_PROJECT_NAME。
+<project> 預設是目前資料夾名稱（例如 stack），或你有設定 COMPOSE_PROJECT_NAME，亦可用 --project 覆寫。
 
 1) 一般備份（不中斷）
 ./backup.sh
 
-
-輸出在 ./backups/，產生 .tgz。
-
 2) 停機備份（更一致）
 ./backup.sh --stop
 
-3) 加密備份（推薦：適合雲端/私庫）
-./backup.sh --stop --encrypt
+3) 指定輸出位置或保留數量
+./backup.sh --dir ./backups --keep 5
+./backup.sh --target /path/to/homelab-stack_YYYYmmdd_HHMMSS.tgz
 
+4) 不備份 volumes 或包含 logs
+./backup.sh --no-volumes
+./backup.sh --with-logs
 
-加密模式：
-
-若有設定 AGE_RECIPIENT：用 recipient 加密
-
-否則走 age -p（互動式密碼）
-
-例：使用 recipient（建議做法）
-
-export AGE_RECIPIENT="age1...."
+5) 加密備份（支援 .tgz.age）
 ./backup.sh --encrypt
 
+加密模式：
+若有設定 AGE_RECIPIENT：用 recipient 加密
+否則走 age -p（互動式密碼）
+
+備份會產生同名 .sha256 校驗檔（例：homelab-stack_YYYYmmdd_HHMMSS.tgz.sha256）。
+
 還原（支援 .tgz 或 .tgz.age）
+./restore.sh backups/<檔名>.tgz --force
 ./restore.sh backups/<檔名>.tgz.age --force
 
-
 還原流程：
+若同目錄有 .sha256 會先驗證
+解壓 configs 到 ./_restore/<timestamp>/configs（不自動覆蓋 repo 內設定）
+還原 volumes（會清空後再解壓）
+預設會 docker compose up -d（可用 --no-start）
 
-docker compose down
-
-還原 volumes
-
-設定檔不會直接覆蓋，會先放到 ./_restore/<timestamp>/config（避免誤蓋）
-
-docker compose up -d
-
-你確認 staged config 沒問題後，再手動 copy 覆蓋 repo 內設定檔。
+常用還原選項：
+--only-configs / --only-volumes / --dry-run / --project NAME
 
 Git / 雲端備份策略（建議）
 
 repo 只放「設定檔 + 腳本」
 
-backups/、_restore/、.tgz、.tgz.age 一律不 commit（已在 .gitignore）
+**不要把 backups/、_restore/、.tgz、.tgz.age、.sha256 推上 GitHub**（可能含憑證/敏感資料）
 
 要做雲端備份：
-
 用 ./backup.sh --stop --encrypt 產生 .tgz.age
-
-把 .tgz.age 另外上傳到雲端（Google Drive / NAS / 私有物件儲存），或放 GitHub 私庫 但不建議把備份檔跟設定 repo 混在一起
+把 .tgz.age 另外上傳到雲端（Google Drive / NAS / 私有物件儲存），或放私有物件儲存，不要與設定 repo 混在一起
 
 Troubleshooting
 1) Permission denied 讀 /var/lib/docker/volumes/...
