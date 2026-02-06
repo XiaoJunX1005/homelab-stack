@@ -14,6 +14,7 @@
 **/logs/
 **/*.log
 backups/
+_restore/
 tmp/
 
 # If you ever export NPM/Portainer data here, keep them out of git
@@ -27,4 +28,6 @@ homepage-config/**/logs/
 
 # general
 *.log
+*.tgz
+*.tar.gz
 .DS_Store
