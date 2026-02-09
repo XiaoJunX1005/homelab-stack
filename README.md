@@ -1,9 +1,6 @@
-```md
-# Homelab Stack（Proxmox / Ubuntu VM / Docker Compose）
+# Homelab Stack (Proxmox / Ubuntu VM / Docker Compose)
 
-這個 Repo 用來在 Proxmox 上的 Ubuntu VM（Docker Host）以 Docker Compose 部署常用 Homelab 服務（Homepage / Nginx Proxy Manager / Portainer），並提供備份與還原腳本，方便把整套環境（含 named volumes）打包保存。
-
----
+這個 repo 用來在 Proxmox 上的 Ubuntu VM（Docker Host）以 Docker Compose 部署常用 Homelab 服務，並包含備份/還原與 systemd 排程。
 
 ## 目錄
 
@@ -14,85 +11,96 @@
 - [5. 安裝與部署](#5-安裝與部署)
 - [6. Homepage 設定](#6-homepage-設定)
 - [7. Nginx Proxy Manager（NPM）設定](#7-nginx-proxy-managernpm-設定)
-- [8. 更新與維護](#8-更新與維護)
-- [9. 備份（backup.sh）](#9-備份backupsh)
-- [10. systemd 排程備份](#10-systemd-排程備份)
-- [11. 還原（restore.sh）](#11-還原restoresh)
-- [12. 常見問題與排錯](#12-常見問題與排錯)
-- [13. 安全注意事項](#13-安全注意事項)
-- [14. 快速指令小抄](#14-快速指令小抄)
-
----
+- [8. 更新策略（Watchtower）](#8-更新策略watchtower)
+- [9. 通知（Kuma + Relay）](#9-通知kuma--relay)
+- [10. 備份（systemd stack-backup）](#10-備份systemd-stack-backup)
+- [11. 還原演練（低風險）](#11-還原演練低風險)
+- [12. Docker prune（systemd）](#12-docker-prune-systemd)
+- [13. 常見問題與排錯](#13-常見問題與排錯)
+- [14. 安全注意事項](#14-安全注意事項)
+- [15. 快速指令小抄](#15-快速指令小抄)
 
 ## 1. 服務總覽
 
-本 Stack 目前包含：
+以下以 `docker-compose.yml` 為準：
 
-- **Homepage**（`ghcr.io/gethomepage/homepage`）
-  - 建議透過 NPM 反代提供 `http://home.local`
-- **Nginx Proxy Manager**（`jc21/nginx-proxy-manager`）
-  - 管理入口：`http://<DOCKER_HOST_IP>:81`
-- **Portainer CE**（`portainer/portainer-ce`）
-  - 管理入口：`http://<DOCKER_HOST_IP>:9000`
-  - 也可透過 NPM 反代 `http://portainer.local`
+- **Homepage** (`ghcr.io/gethomepage/homepage`)
+  - 建議透過 NPM 反代：`http://home.local`
+- **Nginx Proxy Manager** (`jc21/nginx-proxy-manager`)
+  - 管理介面：`http://<HOST_IP>:81`（目前 compose 綁定 `10.1.2.19:81`）
+- **Portainer CE** (`portainer/portainer-ce`)
+  - 目前沒有 publish `9000`，僅 docker network 內可達
+  - 可透過 NPM 反代 `http://portainer.local`
+- **Uptime Kuma** (`louislam/uptime-kuma:1`)
+  - Compose publish：`http://<HOST_IP>:3001`（目前 `10.1.2.19:3001`）
+  - 可透過 NPM 反代 `http://kuma.local`
+- **Watchtower** (`containrrr/watchtower`)
+  - 每日 04:00 依排程檢查更新（僅更新有 label 的容器）
+- **kuma-push-relay** (`python:3.12-alpine`)
+  - 本機 `127.0.0.1:18080` 提供 `/up` / `/down`，轉發到 Kuma push
 
-> 重要：如果你沒有在 NPM 配好 SSL 憑證，就不要把 `http://xxx.local` 改成 `https://xxx.local`，會直接連不上。
-
----
+> 注意：`<HOST_IP>` 目前在 compose 寫死 `10.1.2.19`，請改成你的 VM IP。
+> 可選優化：把 compose 的 `10.1.2.19` 改成 `${HOST_IP}`，並在 `.env` 設定 `HOST_IP=你的IP`。
 
 ## 2. 架構與網路
 
-- Proxmox：VM Host
-- Ubuntu VM：Docker Host（例：`10.1.2.19`）
-- Docker Compose：管理全部容器
-- 對外入口：通常由 NPM（80/443）負責反代
-- Homepage：通常不直接 publish 3000，改讓 NPM 反代到 `homepage:3000`
+### 2.1 流向（簡圖）
 
-### 2.1 DNS / hosts 建議
+```
+Client
+  -> NPM (80/443)
+     -> homepage:3000
+     -> npm:81
+     -> uptime-kuma:3001
+     -> portainer (若有代理)
 
-如果你沒有內網 DNS（Pi-hole / AdGuard / Router DNS），可以先用 hosts：
+watchtower
+  -> kuma-push-relay (/up, /down)
+     -> uptime-kuma /api/push/<token>?status=...&msg=...
+```
 
-- `home.local` → `10.1.2.19`
-- `portainer.local` → `10.1.2.19`
+### 2.2 DNS / hosts 建議
 
----
+- `home.local` -> `<HOST_IP>`
+- `portainer.local` -> `<HOST_IP>`
+- `kuma.local` -> `<HOST_IP>`
 
 ## 3. 目錄結構
 
 ```
-
 .
 ├─ docker-compose.yml
 ├─ deploy.sh
+├─ deploy-systemd-backup.sh
 ├─ backup.sh
 ├─ restore.sh
 ├─ .gitignore
-└─ homepage-config/
-├─ settings.yaml
-├─ services.yaml
-├─ widgets.yaml
-├─ bookmarks.yaml
-├─ docker.yaml
-├─ kubernetes.yaml
-├─ proxmox.yaml
-├─ custom.css
-├─ custom.js
-└─ logs/                 # Homepage runtime logs（不建議進版控）
-
-````
-
----
+├─ scripts/
+│  └─ stack-backup.sh
+├─ systemd/
+│  ├─ stack-backup.service
+│  ├─ stack-backup.timer
+│  └─ stack-backup.service.d.override.conf
+├─ homepage-config/
+│  ├─ settings.yaml
+│  ├─ services.yaml
+│  ├─ widgets.yaml
+│  ├─ bookmarks.yaml
+│  ├─ docker.yaml
+│  ├─ kubernetes.yaml
+│  ├─ proxmox.yaml
+│  ├─ custom.css
+│  ├─ custom.js
+│  └─ logs/                 # Homepage runtime logs（不進版控）
+└─ kuma-push-relay/
+   └─ app.py
+```
 
 ## 4. 需求與前置條件
 
-Ubuntu VM 需要：
-
 - Docker Engine
 - Docker Compose v2（`docker compose ...`）
-- git
-- bash / tar
-
----
+- git / bash / tar
 
 ## 5. 安裝與部署
 
@@ -101,40 +109,61 @@ Ubuntu VM 需要：
 ```bash
 git clone git@github.com:XiaoJunX1005/homelab-stack.git
 cd homelab-stack
-````
+```
 
-### 5.2 啟動
+### 5.2 準備 env 檔（必填）
+
+以下兩個檔案必須存在，且**不要 commit**：
+
+- `/home/test/.config/watchtower.env`
+- `/home/test/.config/kuma-relay.env`
+
+範例（請自行建立在主機上）：
+
+`/home/test/.config/watchtower.env`
+```
+WATCHTOWER_NOTIFICATIONS=shoutrrr
+WATCHTOWER_NOTIFICATION_URL=generic+http://kuma-push-relay:8080/up
+WATCHTOWER_NOTIFICATION_URL_FAIL=generic+http://kuma-push-relay:8080/down
+DOCKER_API_VERSION=1.53
+```
+
+`/home/test/.config/kuma-relay.env`
+```
+KUMA_PUSH_TOKEN=<YOUR_KUMA_PUSH_TOKEN>
+KUMA_BASE_URL=http://uptime-kuma:3001/api/push/
+```
+
+### 5.3 啟動
 
 ```bash
-chmod +x deploy.sh backup.sh restore.sh
+chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### 5.3 檢查
+### 5.4 檢查
 
 ```bash
 docker compose ps
 ```
 
----
+> 若不確定服務名稱，先用 `docker compose config --services` 查看。
 
 ## 6. Homepage 設定
 
 Homepage 的設定檔用 bind mount：
 
-* Host：`./homepage-config`
-* Container：`/app/config`
+- Host：`./homepage-config`
+- Container：`/app/config`
 
-你常改的檔案：
+常用檔案：
 
-* `homepage-config/services.yaml`：卡片 / 服務清單
-* `homepage-config/widgets.yaml`：上方 widget（資源、時間、docker…）
-* `homepage-config/settings.yaml`：整體設定（title/theme/provider…）
-* `homepage-config/bookmarks.yaml`：書籤列
+- `homepage-config/services.yaml`
+- `homepage-config/widgets.yaml`
+- `homepage-config/settings.yaml`
+- `homepage-config/bookmarks.yaml`
 
 ### 6.1 Docker Provider（讓 Homepage 讀到容器狀態）
-
-建議設定（你目前已完成）：
 
 `homepage-config/widgets.yaml`
 
@@ -157,204 +186,220 @@ providers:
 - /var/run/docker.sock:/var/run/docker.sock:ro
 ```
 
----
+### 6.2 group_add 984 的來源
+
+`homepage` 需要讀 docker.sock，`group_add: "984"` 是 docker group 的 GID。請用下列方式查你的環境 GID：
+
+```bash
+stat -c %g /var/run/docker.sock
+# 或
+getent group docker
+```
 
 ## 7. Nginx Proxy Manager（NPM）設定
 
-### 7.1 Homepage（建議）
+### 7.1 Homepage
 
-新增 Proxy Host：
+Proxy Host：
 
-* Domain Names：`home.local`
-* Scheme：`http`
-* Forward Hostname / IP：`homepage`
-* Forward Port：`3000`
-* Websockets Support：建議開
-* Block Common Exploits：建議開
+- Domain Names：`home.local`
+- Scheme：`http`
+- Forward Hostname / IP：`homepage`
+- Forward Port：`3000`
+- Websockets Support：建議開
+- Block Common Exploits：建議開
 
-> 前提：NPM 與 Homepage 在同一個 compose network（同一份 `docker-compose.yml` 通常就 OK）。
+### 7.2 Uptime Kuma
 
-### 7.2 Portainer（無 TLS 先用 http）
+- Domain Names：`kuma.local`
+- Forward Hostname / IP：`uptime-kuma`
+- Forward Port：`3001`
 
-如果 NPM 沒有憑證，就先用：
+### 7.3 Portainer
 
-* `http://portainer.local`
+目前 `portainer` 沒 publish `9000`，所以只能透過 NPM 代理。完成後可用：
 
-等你把 NPM 的 SSL（Let’s Encrypt / 自簽）搞定再切：
+- `http://portainer.local`
 
-* `https://portainer.local`
+> 注意：如果沒有 SSL 憑證，不要把 `http://xxx.local` 改成 `https://xxx.local`。
 
----
+## 8. 更新策略（Watchtower）
 
-## 8. 更新與維護
+- 以 **白名單模式** 運作（`--label-enable`）
+- 只有帶 `com.centurylinklabs.watchtower.enable=true` 的容器會更新
+- `--cleanup` 會清舊 image，回滾能力下降（請留意）
+- 排程：`"0 0 4 * * *"`（每天 04:00）
 
-### 8.1 拉最新版本並重新部署
+常用檢查：
 
 ```bash
-git pull
-./deploy.sh
+docker compose ps
+docker logs watchtower --tail 80
 ```
 
-### 8.2 只重啟某個服務
+### 8.1 Log Rotation
+
+所有長跑服務皆使用 `json-file` log rotation：
+
+- `max-size: "10m"`
+- `max-file: "3"`
+
+## 9. 通知（Kuma + Relay）
+
+### 9.1 為什麼需要 relay
+
+Watchtower 的 shoutrrr generic 預設 **POST + application/json**，但 Uptime Kuma push endpoint 主要採用 query 參數（`status/msg/ping`）的 **GET**，直接對接常會出錯。
+
+### 9.2 目前方案
+
+- Watchtower 通知打 `kuma-push-relay`：
+  - `/up` / `/down`
+- Relay 轉成 Kuma push：
+  - `/api/push/<token>?status=...&msg=...`
+
+### 9.3 驗證指令
 
 ```bash
-docker compose restart homepage
-docker compose restart npm
-docker compose restart portainer
+# host 端（若只在 localhost 開 port）
+curl http://127.0.0.1:18080/up
+
+# 走 docker network
+curl http://kuma-push-relay:8080/up
+
+# 檢查 relay log
+docker logs kuma-push-relay --tail 80
 ```
 
----
+> Kuma push token 屬於敏感資訊，**不要 commit**。
 
-## 9. 備份（backup.sh）
+## 10. 備份（systemd stack-backup）
 
-`backup.sh` 會把：
+### 10.1 正式備份方案
 
-* Repo 重要設定檔（docker-compose / homepage-config 等）
-* 以及指定的 Docker named volumes（例如 `*_npm_data`, `*_npm_letsencrypt`, `*_portainer_data`）
+- systemd timer：`stack-backup.timer`
+- 排程時間：每天 04:10（避開 watchtower 04:00）
+- 產物目錄：`/opt/stack-backups/stack/`
+- 內容：
+  - `compose.tar.gz`
+  - `volume-*.tar.gz`
+  - `volumes.txt`
 
-打包成單一 `.tgz`，放在 `./backups/`。
+目前實際備份的 volumes：
 
-### 9.1 執行
+- `portainer_data`
+- `npm_data`
+- `npm_letsencrypt`
+- `uptimekuma_data`
 
-```bash
-./backup.sh
-```
+> `homepage` 使用 bind mount（`./homepage-config`），已包含在 `compose.tar.gz`。
 
----
-
-## 10. systemd 排程備份
-
-這裡提供 systemd unit 檔與腳本（repo 內為單一來源）：
-
-* `systemd/stack-backup.service`
-* `systemd/stack-backup.timer`
-* `systemd/stack-backup.service.d.override.conf`（flock 鎖）
-* `scripts/stack-backup.sh`
-* `deploy-systemd-backup.sh`（一鍵安裝）
-
-### 10.1 安裝 systemd service / timer
+### 10.2 一鍵安裝
 
 ```bash
-# 一鍵安裝（建議）
 ./deploy-systemd-backup.sh
-
-# 或手動安裝
-sudo install -m 0755 scripts/stack-backup.sh /usr/local/bin/stack-backup.sh
-sudo install -m 0644 systemd/stack-backup.service /etc/systemd/system/stack-backup.service
-sudo install -m 0644 systemd/stack-backup.timer /etc/systemd/system/stack-backup.timer
-sudo install -m 0644 systemd/stack-backup.service.d.override.conf /etc/systemd/system/stack-backup.service.d/override.conf
 ```
 
-### 10.2 啟用並立即生效
+### 10.3 檢查
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now stack-backup.timer
-
-# 立刻手動跑一次確認（可選但建議）
-sudo systemctl start stack-backup.service
-
-# 看排程是否存在
-sudo systemctl list-timers | grep stack-backup || true
-
-# 看最後 80 行 log
-sudo journalctl -u stack-backup.service -n 80 --no-pager
+systemctl list-timers --all | rg 'stack-backup|docker-prune'
+journalctl -u stack-backup.service -n 120 --no-pager
 ```
 
----
+### 10.4 嚴禁把備份進版控（非常重要）
 
-## 11. 還原（restore.sh）
+NPM 的 `npm_letsencrypt` 內含私鑰/憑證，備份檔 commit 等同外洩。
 
-`restore.sh` 用來從備份檔還原：
+### 10.5 關於 repo 內的 `backup.sh`
 
-* 會停止現有服務
-* 解壓備份
-* 覆寫並還原 volumes
-* 重新 `docker compose up -d`
+`backup.sh` 為舊版/手動使用的備份腳本；正式排程以 `stack-backup.timer` 為主。
 
-### 11.1 執行（需要 --force）
+## 11. 還原演練（低風險）
+
+建議用新目錄做還原演練，不影響正式環境：
 
 ```bash
-./restore.sh backups/<YOUR_BACKUP>.tgz --force
+latest="$(ls -t /opt/stack-backups/stack/stack-*.tar.gz | head -1)"
+restore_dir="/opt/stack-restoretest"
+mkdir -p "$restore_dir"
+tar xzf "$latest" -C "$restore_dir"
+
+# 還原 volumes（先建立新 volumes）
+for f in "$restore_dir"/volume-*.tar.gz; do
+  vol="$(basename "$f" | sed 's/^volume-//; s/\.tar\.gz$//')"
+  docker volume create "$vol" >/dev/null
+  docker run --rm -v "${vol}:/data" -v "$restore_dir:/backup" alpine:3.19 \
+    sh -c "rm -rf /data/* && tar xzf /backup/$(basename "$f") -C /data"
+done
+
+# 還原 compose
+mkdir -p /opt/stack-restoretest/compose
+tar xzf "$restore_dir/compose.tar.gz" -C /opt/stack-restoretest/compose
+
+# 建議用不同 project name 或改 ports 避免衝突
+cd /opt/stack-restoretest/compose
+COMPOSE_PROJECT_NAME=restoretest docker compose up -d
 ```
 
-> 重要：還原會覆寫 volumes，請確認目標環境可接受被覆蓋。
+## 12. Docker prune（systemd）
 
----
+本機有 `docker-prune.timer`，每週清除超過 7 天未使用的 image：
 
-## 12. 常見問題與排錯
+```bash
+systemctl list-timers --all | rg 'stack-backup|docker-prune'
+systemctl status docker-prune.timer --no-pager
+```
 
-### 12.1 Homepage 顯示 Host validation failed
+## 13. 常見問題與排錯
+
+### 13.1 服務名稱/容器名稱不一致
+
+請先用以下指令確認名稱，再進行操作：
+
+```bash
+docker compose config --services
+docker compose ps
+```
+
+若要看 log，可使用 container_name：
+
+```bash
+docker logs nginx-proxy-manager --tail 80
+docker logs uptime-kuma --tail 80
+docker logs watchtower --tail 80
+```
+
+### 13.2 Homepage 顯示 Host validation failed
 
 log 會看到：
 
 ```
-Host validation failed for: home.local
-Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable ...
+Host validation failed
 ```
 
-解法：在 `docker-compose.yml` 的 homepage 增加（依你使用的 domain/IP 調整）：
+在 `docker-compose.yml` 的 `HOMEPAGE_ALLOWED_HOSTS` 補上你常用的 hostname / IP。
 
-```yaml
-environment:
-  - HOMEPAGE_ALLOWED_HOSTS=home.local,10.1.2.19
-```
+## 14. 安全注意事項
 
-然後重建：
+- **不要 commit secrets**（token、API key、憑證）
+- **不要 commit 備份檔**（`*.tgz` / `*.tar.gz`）
+- NPM 的 `npm_letsencrypt` 內含私鑰/憑證
 
-```bash
-docker compose up -d --force-recreate homepage
-```
-
-### 12.2 容器內沒有 curl / wget 不支援 unix-socket
-
-Homepage 容器可能沒有 `curl`，`wget` 也可能是 BusyBox 版不支援 `--unix-socket`，屬於正常。
-
-你可以用宿主機測：
-
-```bash
-sudo curl --unix-socket /var/run/docker.sock http://localhost/_ping
-sudo curl --unix-socket /var/run/docker.sock http://localhost/containers/json | head -c 200 && echo
-```
-
-或用容器內的 node 測（你已成功）：
-
-* GET `/_ping` 回 `OK`
-* GET `/containers/json` 拿到容器清單
-
-### 12.3 直接進 /var/lib/docker/volumes/.../_data 權限不足
-
-那是 Docker volumes 的 root 路徑，沒 sudo 會被擋。也不建議直接去那邊改。
-
-本 repo 改成 `./homepage-config:/app/config` 後，建議都在 repo 內改設定檔。
-
----
-
-## 13. 安全注意事項
-
-* 不要把 API Key / Token 直接 commit
-* NPM 的資料（含憑證）在 volumes：`npm_data`、`npm_letsencrypt`
-* Docker socket 是高權限介面，掛載代表容器可讀 Docker 狀態；若要更嚴格可改 socket-proxy 做權限控管
-
----
-
-## 14. 快速指令小抄
+## 15. 快速指令小抄
 
 ```bash
 # 啟動 / 更新
 ./deploy.sh
 
-# 查看狀態
+# 檢查容器
 docker compose ps
 
-# 看 log
-docker logs --tail 200 homepage
-docker logs --tail 200 nginx-proxy-manager
-docker logs --tail 200 portainer
+# Watchtower log
+docker logs watchtower --tail 80
 
 # 備份
-./backup.sh
+sudo systemctl start stack-backup.service
 
 # 還原（會覆寫 volumes）
-./restore.sh backups/<YOUR_BACKUP>.tgz --force
+# 參考第 11 章
 ```

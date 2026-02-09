@@ -9,6 +9,8 @@
 *.pem
 *.pfx
 *.p12
+*.secret*
+homepage-config/*.secret*
 
 # Runtime / temp
 **/logs/
