@@ -3,14 +3,26 @@ services:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   npm:
     image: jc21/nginx-proxy-manager:latest
     container_name: nginx-proxy-manager
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "10.1.2.19:80:80"
       - "10.1.2.19:81:81"
@@ -18,11 +30,24 @@ services:
     volumes:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      default:
+        aliases:
+          - home.local
+          - portainer.local
+          - kuma.local
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
   
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     group_add:
       - "984"
     environment:
@@ -30,10 +55,79 @@ services:
     volumes:
       - ./homepage-config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "10.1.2.19:3001:3001"
+    volumes:
+      - uptimekuma_data:/app/data
+    extra_hosts:
+      - "home.local:10.1.2.19"
+      - "portainer.local:10.1.2.19"
+      - "kuma.local:10.1.2.19"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - /home/test/.config/watchtower.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "kuma.local:10.1.2.19"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    command: >
+      --label-enable
+      --cleanup
+      --include-restarting
+      --rolling-restart
+      --schedule "0 0 4 * * *"
+
+  kuma-push-relay:
+    image: python:3.12-alpine
+    container_name: kuma-push-relay
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - /home/test/.config/kuma-relay.env
+    environment:
+      PORT: "8080"
+      DEFAULT_UP_MSG: "watchtower_ok"
+      DEFAULT_DOWN_MSG: "watchtower_failed"
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ./kuma-push-relay:/app:ro
+    command: ["python", "/app/app.py"]
+    extra_hosts:
+      - "kuma.local:10.1.2.19"
 
 volumes:
   portainer_data:
   npm_data:
   npm_letsencrypt:
   homepage_data:
+  uptimekuma_data:

@@ -25,6 +25,11 @@
         href: http://home.local
         description: Lab 首頁
 
+    - Uptime Kuma:
+        icon: uptime-kuma
+        href: http://kuma.local
+        description: 監控 / 告警
+
     - Docker Host (VM):
         icon: ubuntu
         href: http://10.1.2.19

@@ -1,0 +1,24 @@
+[Unit]
+Description=Backup homelab stack (configs + volumes)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+
+# 你目前的使用者是 test，repo 在 /home/test/stack
+User=test
+Group=test
+SupplementaryGroups=docker
+
+WorkingDirectory=/home/test/stack
+
+# 不停機備份（快、不中斷）
+ExecStart=/home/test/stack/backup.sh
+
+# 需要更一致的備份（停機再備份）就改成這行，並把上面那行註解掉：
+# ExecStart=/home/test/stack/backup.sh --stop
+
+# 保留策略：刪除 14 天以前的備份檔（避免爆硬碟）
+ExecStartPost=/usr/bin/find /home/test/stack/backups -maxdepth 1 -type f -name 'homelab-stack_*.tgz*' -mtime +14 -print -delete

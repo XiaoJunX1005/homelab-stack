@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily backup timer for homelab stack
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=homelab-stack-backup.service
+
+[Install]
+WantedBy=timers.target

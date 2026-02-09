@@ -16,10 +16,11 @@
 - [7. Nginx Proxy Manager（NPM）設定](#7-nginx-proxy-managernpm-設定)
 - [8. 更新與維護](#8-更新與維護)
 - [9. 備份（backup.sh）](#9-備份backupsh)
-- [10. 還原（restore.sh）](#10-還原restoresh)
-- [11. 常見問題與排錯](#11-常見問題與排錯)
-- [12. 安全注意事項](#12-安全注意事項)
-- [13. 快速指令小抄](#13-快速指令小抄)
+- [10. systemd 排程備份](#10-systemd-排程備份)
+- [11. 還原（restore.sh）](#11-還原restoresh)
+- [12. 常見問題與排錯](#12-常見問題與排錯)
+- [13. 安全注意事項](#13-安全注意事項)
+- [14. 快速指令小抄](#14-快速指令小抄)
 
 ---
 
@@ -221,7 +222,39 @@ docker compose restart portainer
 
 ---
 
-## 10. 還原（restore.sh）
+## 10. systemd 排程備份
+
+這裡提供 systemd unit 檔，放在 `systemd/`：
+
+* `systemd/homelab-stack-backup.service`
+* `systemd/homelab-stack-backup.timer`
+
+### 10.1 安裝 systemd service / timer
+
+```bash
+sudo install -m 0644 systemd/homelab-stack-backup.service /etc/systemd/system/homelab-stack-backup.service
+sudo install -m 0644 systemd/homelab-stack-backup.timer /etc/systemd/system/homelab-stack-backup.timer
+```
+
+### 10.2 啟用並立即生效
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now homelab-stack-backup.timer
+
+# 立刻手動跑一次確認（可選但建議）
+sudo systemctl start homelab-stack-backup.service
+
+# 看排程是否存在
+sudo systemctl list-timers | grep homelab || true
+
+# 看最後 80 行 log
+sudo journalctl -u homelab-stack-backup.service -n 80 --no-pager
+```
+
+---
+
+## 11. 還原（restore.sh）
 
 `restore.sh` 用來從備份檔還原：
 
@@ -230,7 +263,7 @@ docker compose restart portainer
 * 覆寫並還原 volumes
 * 重新 `docker compose up -d`
 
-### 10.1 執行（需要 --force）
+### 11.1 執行（需要 --force）
 
 ```bash
 ./restore.sh backups/<YOUR_BACKUP>.tgz --force
@@ -240,9 +273,9 @@ docker compose restart portainer
 
 ---
 
-## 11. 常見問題與排錯
+## 12. 常見問題與排錯
 
-### 11.1 Homepage 顯示 Host validation failed
+### 12.1 Homepage 顯示 Host validation failed
 
 log 會看到：
 
@@ -264,7 +297,7 @@ environment:
 docker compose up -d --force-recreate homepage
 ```
 
-### 11.2 容器內沒有 curl / wget 不支援 unix-socket
+### 12.2 容器內沒有 curl / wget 不支援 unix-socket
 
 Homepage 容器可能沒有 `curl`，`wget` 也可能是 BusyBox 版不支援 `--unix-socket`，屬於正常。
 
@@ -280,7 +313,7 @@ sudo curl --unix-socket /var/run/docker.sock http://localhost/containers/json | 
 * GET `/_ping` 回 `OK`
 * GET `/containers/json` 拿到容器清單
 
-### 11.3 直接進 /var/lib/docker/volumes/.../_data 權限不足
+### 12.3 直接進 /var/lib/docker/volumes/.../_data 權限不足
 
 那是 Docker volumes 的 root 路徑，沒 sudo 會被擋。也不建議直接去那邊改。
 
@@ -288,7 +321,7 @@ sudo curl --unix-socket /var/run/docker.sock http://localhost/containers/json | 
 
 ---
 
-## 12. 安全注意事項
+## 13. 安全注意事項
 
 * 不要把 API Key / Token 直接 commit
 * NPM 的資料（含憑證）在 volumes：`npm_data`、`npm_letsencrypt`
@@ -296,7 +329,7 @@ sudo curl --unix-socket /var/run/docker.sock http://localhost/containers/json | 
 
 ---
 
-## 13. 快速指令小抄
+## 14. 快速指令小抄
 
 ```bash
 # 啟動 / 更新
