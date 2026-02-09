@@ -6,6 +6,21 @@ PROJECT_NAME="${PROJECT_NAME:-stack}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/stack-backups/${PROJECT_NAME}}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 
+if { [ -z "${CFG_DIR:-}" ] || [ -z "${HOST_IP:-}" ]; } && [ -r /etc/default/homelab-stack ]; then
+  # shellcheck disable=SC1091
+  . /etc/default/homelab-stack
+fi
+
+if [ -z "${CFG_DIR:-}" ] || [ -z "${HOST_IP:-}" ]; then
+  echo "ERROR: CFG_DIR and HOST_IP must be set (via /etc/default/homelab-stack or environment)." >&2
+  exit 1
+fi
+
+# Re-derive BACKUP_DIR / PROJECT_NAME if defaults changed via /etc/default
+PROJECT_NAME="${PROJECT_NAME:-stack}"
+BACKUP_DIR="${BACKUP_DIR:-/opt/stack-backups/${PROJECT_NAME}}"
+STACK_DIR="${STACK_DIR:-/home/test/stack}"
+
 compose_dir="$STACK_DIR"
 compose_file="$compose_dir/docker-compose.yml"
 compose_env="$compose_dir/.env"

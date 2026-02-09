@@ -24,8 +24,9 @@ fi
 
 if [ ! -f "$DEFAULTS_DST" ]; then
   install -m 0644 "$DEFAULTS_SRC" "$DEFAULTS_DST"
+  chmod 0644 "$DEFAULTS_DST"
   echo "Created $DEFAULTS_DST"
-  echo "Please edit CFG_DIR / STACK_DIR / BACKUP_DIR if needed."
+  echo "Please edit HOST_IP / CFG_DIR / STACK_DIR (required) and BACKUP_DIR if needed."
 fi
 
 systemctl daemon-reload

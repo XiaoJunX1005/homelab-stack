@@ -3,6 +3,7 @@
 
 CFG_DIR=/home/test/.config
 STACK_DIR=/home/test/stack
+HOST_IP=10.1.2.19
 BACKUP_DIR=/opt/stack-backups/stack
 PROJECT_NAME=stack
 KEEP_DAYS=14

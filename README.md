@@ -172,7 +172,7 @@ chmod +x deploy.sh
 sudo ./deploy-systemd.sh
 ```
 
-安裝後請編輯 `/etc/default/homelab-stack`（至少改 `CFG_DIR` 與 `STACK_DIR`）。
+安裝後請編輯 `/etc/default/homelab-stack`（必填：`HOST_IP` / `CFG_DIR` / `STACK_DIR`）。
 
 ### 5.4 檢查
 
@@ -430,6 +430,15 @@ systemctl status docker-prune.timer --no-pager
 - `PROJECT_NAME`
 - `KEEP_DAYS`
 - `PRUNE_UNTIL_HOURS`
+
+### 12.2 systemd 檢查指令
+
+```bash
+systemctl cat stack-backup.service
+sudo cat /etc/default/homelab-stack
+sudo systemctl start stack-backup.service
+sudo journalctl -u stack-backup.service -n 120 --no-pager
+```
 
 ## 13. 常見問題與排錯
 
