@@ -117,7 +117,7 @@ cd homelab-stack
 
 ### 5.2 準備 env 檔（必填）
 
-1) 複製 `.env.example` 到 `.env` 並改成你的 VM IP：
+1) 複製 `.env.example` 到 `.env` 並改成你的 VM IP（若已有 `.env`，請補上 `HOST_IP=...`）：
 
 ```bash
 cp .env.example .env
@@ -134,8 +134,9 @@ cp .env.example .env
 範例（repo 內提供模板，請複製到對應位置後再填值）：
 
 ```bash
-cp env/watchtower.env.example /home/test/.config/watchtower.env
-cp env/kuma-relay.env.example /home/test/.config/kuma-relay.env
+sudo mkdir -p /home/test/.config
+sudo cp env/watchtower.env.example /home/test/.config/watchtower.env
+sudo cp env/kuma-relay.env.example /home/test/.config/kuma-relay.env
 ```
 
 `/home/test/.config/watchtower.env`

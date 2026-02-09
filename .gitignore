@@ -37,6 +37,8 @@ homepage-config/**/logs/
 *.tgz
 *.tar.gz
 *.sha256
+compose.rendered.yml
+*.rendered.yml
 .DS_Store
 
 # local backups
