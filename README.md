@@ -74,7 +74,11 @@ watchtower
 ├─ deploy-systemd-backup.sh
 ├─ backup.sh
 ├─ restore.sh
+├─ .env.example
 ├─ .gitignore
+├─ env/
+│  ├─ watchtower.env.example
+│  └─ kuma-relay.env.example
 ├─ scripts/
 │  └─ stack-backup.sh
 ├─ systemd/
@@ -113,12 +117,26 @@ cd homelab-stack
 
 ### 5.2 準備 env 檔（必填）
 
-以下兩個檔案必須存在，且**不要 commit**：
+1) 複製 `.env.example` 到 `.env` 並改成你的 VM IP：
+
+```bash
+cp .env.example .env
+# 編輯 .env，改成你的 VM IP
+```
+
+> Docker Compose 會自動讀取 `.env`。請 **不要 commit** 真實 `.env`。
+
+2) 以下兩個檔案必須存在，且**不要 commit**：
 
 - `/home/test/.config/watchtower.env`
 - `/home/test/.config/kuma-relay.env`
 
-範例（請自行建立在主機上）：
+範例（repo 內提供模板，請複製到對應位置後再填值）：
+
+```bash
+cp env/watchtower.env.example /home/test/.config/watchtower.env
+cp env/kuma-relay.env.example /home/test/.config/kuma-relay.env
+```
 
 `/home/test/.config/watchtower.env`
 ```
@@ -130,8 +148,8 @@ DOCKER_API_VERSION=1.53
 
 `/home/test/.config/kuma-relay.env`
 ```
-KUMA_PUSH_TOKEN=<YOUR_KUMA_PUSH_TOKEN>
 KUMA_BASE_URL=http://uptime-kuma:3001/api/push/
+KUMA_PUSH_TOKEN=<YOUR_KUMA_PUSH_TOKEN>
 ```
 
 ### 5.3 啟動
@@ -316,7 +334,7 @@ NPM 的 `npm_letsencrypt` 內含私鑰/憑證，備份檔 commit 等同外洩。
 
 ## 11. 還原演練（低風險）
 
-建議用新目錄做還原演練，不影響正式環境：
+### 11.A Restore Drill（僅驗證資料，不啟動服務）
 
 ```bash
 latest="$(ls -t /opt/stack-backups/stack/stack-*.tar.gz | head -1)"
@@ -324,21 +342,52 @@ restore_dir="/opt/stack-restoretest"
 mkdir -p "$restore_dir"
 tar xzf "$latest" -C "$restore_dir"
 
-# 還原 volumes（先建立新 volumes）
-for f in "$restore_dir"/volume-*.tar.gz; do
-  vol="$(basename "$f" | sed 's/^volume-//; s/\.tar\.gz$//')"
-  docker volume create "$vol" >/dev/null
-  docker run --rm -v "${vol}:/data" -v "$restore_dir:/backup" alpine:3.19 \
-    sh -c "rm -rf /data/* && tar xzf /backup/$(basename "$f") -C /data"
-done
+# 列出備份內容
+tar tzf "$latest" | head -n 50
+
+# 確認 volumes.txt 與實際 tar 一致
+cat "$restore_dir/volumes.txt"
+ls -lh "$restore_dir"/volume-*.tar.gz
+
+# 可選：抽查檔案是否存在（不啟動容器）
+# 例如 NPM 的 data、Kuma 的 sqlite（路徑依實際版本可能不同）
+```
+
+### 11.B Restore Drill（實際啟動，隔離現網）
+
+> 原則：用不同 project name，並避免 ports 衝突（可改 ports 或不 publish）。
+
+```bash
+latest="$(ls -t /opt/stack-backups/stack/stack-*.tar.gz | head -1)"
+restore_dir="/opt/stack-restoretest"
+mkdir -p "$restore_dir"
+tar xzf "$latest" -C "$restore_dir"
 
 # 還原 compose
 mkdir -p /opt/stack-restoretest/compose
 tar xzf "$restore_dir/compose.tar.gz" -C /opt/stack-restoretest/compose
-
-# 建議用不同 project name 或改 ports 避免衝突
 cd /opt/stack-restoretest/compose
+
+# 建議：使用 override 檔把 ports 清掉或改成不衝突
+# 例如建立 docker-compose.override.yml，把 ports 整段移除或改成 127.0.0.1:xxxxx
+
+# 建立新 volumes（restoretest_*）
+for f in "$restore_dir"/volume-*.tar.gz; do
+  vol="$(basename "$f" | sed 's/^volume-//; s/\.tar\.gz$//')"
+  new_vol="restoretest_${vol}"
+  docker volume create "$new_vol" >/dev/null
+  docker run --rm -v "${new_vol}:/data" -v "$restore_dir:/backup" alpine:3.19 \
+    sh -c "rm -rf /data/* && tar xzf /backup/$(basename "$f") -C /data"
+done
+
+# 使用不同 project name 啟動
 COMPOSE_PROJECT_NAME=restoretest docker compose up -d
+
+# 驗證（可只驗證一個服務，如 Uptime Kuma）
+# docker logs uptime-kuma --tail 80
+
+# 清理
+# COMPOSE_PROJECT_NAME=restoretest docker compose down -v
 ```
 
 ## 12. Docker prune（systemd）

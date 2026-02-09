@@ -24,9 +24,9 @@ services:
         max-size: "10m"
         max-file: "3"
     ports:
-      - "10.1.2.19:80:80"
-      - "10.1.2.19:81:81"
-      - "10.1.2.19:443:443"
+      - "${HOST_IP}:80:80"
+      - "${HOST_IP}:81:81"
+      - "${HOST_IP}:443:443"
     volumes:
       - npm_data:/data
       - npm_letsencrypt:/etc/letsencrypt
@@ -51,7 +51,7 @@ services:
     group_add:
       - "984"
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: home.local,10.1.2.19,10.1.2.19:3000,localhost,127.0.0.1
+      HOMEPAGE_ALLOWED_HOSTS: home.local,${HOST_IP},${HOST_IP}:3000,localhost,127.0.0.1
     volumes:
       - ./homepage-config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -68,13 +68,13 @@ services:
         max-size: "10m"
         max-file: "3"
     ports:
-      - "10.1.2.19:3001:3001"
+      - "${HOST_IP}:3001:3001"
     volumes:
       - uptimekuma_data:/app/data
     extra_hosts:
-      - "home.local:10.1.2.19"
-      - "portainer.local:10.1.2.19"
-      - "kuma.local:10.1.2.19"
+      - "home.local:${HOST_IP}"
+      - "portainer.local:${HOST_IP}"
+      - "kuma.local:${HOST_IP}"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
@@ -92,7 +92,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
-      - "kuma.local:10.1.2.19"
+      - "kuma.local:${HOST_IP}"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     command: >
@@ -123,7 +123,7 @@ services:
       - ./kuma-push-relay:/app:ro
     command: ["python", "/app/app.py"]
     extra_hosts:
-      - "kuma.local:10.1.2.19"
+      - "kuma.local:${HOST_IP}"
 
 volumes:
   portainer_data:
