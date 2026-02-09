@@ -30,7 +30,7 @@
   - 管理介面：`http://<HOST_IP>:81`（目前 compose 綁定 `10.1.2.19:81`）
 - **Portainer CE** (`portainer/portainer-ce`)
   - 目前沒有 publish `9000`，僅 docker network 內可達
-  - 可透過 NPM 反代 `http://portainer.local`
+  - 管理入口：透過 NPM 反代 `http://portainer.local`
 - **Uptime Kuma** (`louislam/uptime-kuma:1`)
   - Compose publish：`http://<HOST_IP>:3001`（目前 `10.1.2.19:3001`）
   - 可透過 NPM 反代 `http://kuma.local`
@@ -117,14 +117,15 @@ cd homelab-stack
 
 ### 5.2 準備 env 檔（必填）
 
-1) 複製 `.env.example` 到 `.env` 並改成你的 VM IP（若已有 `.env`，請補上 `HOST_IP=...`）：
+1) 複製 `.env.example` 到 `.env` 並改成你的 VM IP 與 CFG_DIR（若已有 `.env`，請補上 `HOST_IP` / `CFG_DIR`）：
 
 ```bash
 cp .env.example .env
-# 編輯 .env，改成你的 VM IP
+# 編輯 .env，改成你的 VM IP 與 CFG_DIR
 ```
 
 > Docker Compose 會自動讀取 `.env`。請 **不要 commit** 真實 `.env`。
+> 建議不要用 sudo 跑 `deploy.sh`，避免 `$HOME` 指到 `/root`；必要時請明確設定 `CFG_DIR=/home/<user>/.config`。
 
 2) 以下兩個檔案必須存在，且**不要 commit**：
 
@@ -134,12 +135,12 @@ cp .env.example .env
 範例（repo 內提供模板，請複製到對應位置後再填值）：
 
 ```bash
-sudo mkdir -p /home/test/.config
-sudo cp env/watchtower.env.example /home/test/.config/watchtower.env
-sudo cp env/kuma-relay.env.example /home/test/.config/kuma-relay.env
+mkdir -p "$CFG_DIR"
+cp env/watchtower.env.example "$CFG_DIR/watchtower.env"
+cp env/kuma-relay.env.example "$CFG_DIR/kuma-relay.env"
 ```
 
-`/home/test/.config/watchtower.env`
+`$CFG_DIR/watchtower.env`
 ```
 WATCHTOWER_NOTIFICATIONS=shoutrrr
 WATCHTOWER_NOTIFICATION_URL=generic+http://kuma-push-relay:8080/up
@@ -147,7 +148,7 @@ WATCHTOWER_NOTIFICATION_URL_FAIL=generic+http://kuma-push-relay:8080/down
 DOCKER_API_VERSION=1.53
 ```
 
-`/home/test/.config/kuma-relay.env`
+`$CFG_DIR/kuma-relay.env`
 ```
 KUMA_BASE_URL=http://uptime-kuma:3001/api/push/
 KUMA_PUSH_TOKEN=<YOUR_KUMA_PUSH_TOKEN>

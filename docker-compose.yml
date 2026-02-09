@@ -88,7 +88,7 @@ services:
         max-size: "10m"
         max-file: "3"
     env_file:
-      - /home/test/.config/watchtower.env
+      - ${CFG_DIR}/watchtower.env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
@@ -112,7 +112,7 @@ services:
         max-size: "10m"
         max-file: "3"
     env_file:
-      - /home/test/.config/kuma-relay.env
+      - ${CFG_DIR}/kuma-relay.env
     environment:
       PORT: "8080"
       DEFAULT_UP_MSG: "watchtower_ok"
