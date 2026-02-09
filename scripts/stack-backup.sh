@@ -29,16 +29,22 @@ if [ -z "$project_name" ]; then
 fi
 export COMPOSE_PROJECT_NAME="$project_name"
 
-compose_args=(-f "$compose_file" -p "$project_name")
-if [ -f "$compose_env" ]; then
-  compose_args+=(--env-file "$compose_env")
-fi
+compose_args=(
+  --project-directory "$compose_dir"
+  --env-file "$compose_env"
+  -f "$compose_file"
+  -p "$project_name"
+)
+
+compose() {
+  docker compose "${compose_args[@]}" "$@"
+}
 
 # Pack compose directory (exclude .git and local backups)
 tar --exclude='.git' --exclude='backups' -czf "$workdir/compose.tar.gz" -C "$compose_dir" .
 
 # Resolve volume names from docker compose config (YAML)
-docker compose "${compose_args[@]}" config | awk -v project="$project_name" '
+compose config | awk -v project="$project_name" '
 BEGIN { in_vol=0; key=""; name=""; }
 # enter volumes section
 /^volumes:/ { in_vol=1; next; }
