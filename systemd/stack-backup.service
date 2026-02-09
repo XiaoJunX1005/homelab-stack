@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup docker stack stack
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/stack-backup.sh

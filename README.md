@@ -224,32 +224,41 @@ docker compose restart portainer
 
 ## 10. systemd 排程備份
 
-這裡提供 systemd unit 檔，放在 `systemd/`：
+這裡提供 systemd unit 檔與腳本（repo 內為單一來源）：
 
-* `systemd/homelab-stack-backup.service`
-* `systemd/homelab-stack-backup.timer`
+* `systemd/stack-backup.service`
+* `systemd/stack-backup.timer`
+* `systemd/stack-backup.service.d.override.conf`（flock 鎖）
+* `scripts/stack-backup.sh`
+* `deploy-systemd-backup.sh`（一鍵安裝）
 
 ### 10.1 安裝 systemd service / timer
 
 ```bash
-sudo install -m 0644 systemd/homelab-stack-backup.service /etc/systemd/system/homelab-stack-backup.service
-sudo install -m 0644 systemd/homelab-stack-backup.timer /etc/systemd/system/homelab-stack-backup.timer
+# 一鍵安裝（建議）
+./deploy-systemd-backup.sh
+
+# 或手動安裝
+sudo install -m 0755 scripts/stack-backup.sh /usr/local/bin/stack-backup.sh
+sudo install -m 0644 systemd/stack-backup.service /etc/systemd/system/stack-backup.service
+sudo install -m 0644 systemd/stack-backup.timer /etc/systemd/system/stack-backup.timer
+sudo install -m 0644 systemd/stack-backup.service.d.override.conf /etc/systemd/system/stack-backup.service.d/override.conf
 ```
 
 ### 10.2 啟用並立即生效
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now homelab-stack-backup.timer
+sudo systemctl enable --now stack-backup.timer
 
 # 立刻手動跑一次確認（可選但建議）
-sudo systemctl start homelab-stack-backup.service
+sudo systemctl start stack-backup.service
 
 # 看排程是否存在
-sudo systemctl list-timers | grep homelab || true
+sudo systemctl list-timers | grep stack-backup || true
 
 # 看最後 80 行 log
-sudo journalctl -u homelab-stack-backup.service -n 80 --no-pager
+sudo journalctl -u stack-backup.service -n 80 --no-pager
 ```
 
 ---
