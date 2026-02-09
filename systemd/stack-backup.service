@@ -4,4 +4,5 @@ After=docker.service
 
 [Service]
 Type=oneshot
+EnvironmentFile=-/etc/default/homelab-stack
 ExecStart=/usr/local/bin/stack-backup.sh

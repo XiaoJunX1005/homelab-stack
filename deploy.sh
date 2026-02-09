@@ -104,3 +104,5 @@ echo "Homepage:  http://home.local"
 echo "NPM:       http://${HOST_IP}:81"
 echo "Kuma:      http://${HOST_IP}:3001"
 echo "Portainer: http://portainer.local (via NPM)"
+echo
+echo "Next (systemd timers): sudo ./deploy-systemd.sh"

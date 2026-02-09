@@ -72,6 +72,7 @@ watchtower
 ├─ docker-compose.yml
 ├─ deploy.sh
 ├─ deploy-systemd-backup.sh
+├─ deploy-systemd.sh
 ├─ backup.sh
 ├─ restore.sh
 ├─ .env.example
@@ -79,12 +80,16 @@ watchtower
 ├─ env/
 │  ├─ watchtower.env.example
 │  └─ kuma-relay.env.example
+├─ docs/
+│  └─ systemd-dropins.md
 ├─ scripts/
 │  └─ stack-backup.sh
 ├─ systemd/
 │  ├─ stack-backup.service
 │  ├─ stack-backup.timer
 │  └─ stack-backup.service.d.override.conf
+│  ├─ docker-prune.service
+│  └─ docker-prune.timer
 ├─ homepage-config/
 │  ├─ settings.yaml
 │  ├─ services.yaml
@@ -160,6 +165,14 @@ KUMA_PUSH_TOKEN=<YOUR_KUMA_PUSH_TOKEN>
 chmod +x deploy.sh
 ./deploy.sh
 ```
+
+### 5.3.1 systemd timers（備份/清理）
+
+```bash
+sudo ./deploy-systemd.sh
+```
+
+安裝後請編輯 `/etc/default/homelab-stack`（至少改 `CFG_DIR` 與 `STACK_DIR`）。
 
 ### 5.4 檢查
 
@@ -316,7 +329,7 @@ docker logs kuma-push-relay --tail 80
 ### 10.2 一鍵安裝
 
 ```bash
-./deploy-systemd-backup.sh
+sudo ./deploy-systemd.sh
 ```
 
 ### 10.3 檢查
@@ -325,6 +338,8 @@ docker logs kuma-push-relay --tail 80
 systemctl list-timers --all | rg 'stack-backup|docker-prune'
 journalctl -u stack-backup.service -n 120 --no-pager
 ```
+
+更多覆寫範本請見 `docs/systemd-dropins.md`。
 
 ### 10.4 嚴禁把備份進版控（非常重要）
 
@@ -400,6 +415,21 @@ COMPOSE_PROJECT_NAME=restoretest docker compose up -d
 systemctl list-timers --all | rg 'stack-backup|docker-prune'
 systemctl status docker-prune.timer --no-pager
 ```
+
+### 12.1 systemd 預設值
+
+系統級設定檔（可改）：
+
+- `/etc/default/homelab-stack`
+
+主要欄位（最少要改 `CFG_DIR` 與 `STACK_DIR`）：
+
+- `CFG_DIR`
+- `STACK_DIR`
+- `BACKUP_DIR`
+- `PROJECT_NAME`
+- `KEEP_DAYS`
+- `PRUNE_UNTIL_HOURS`
 
 ## 13. 常見問題與排錯
 

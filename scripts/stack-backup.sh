@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-stack_name="stack"
-compose_dir="/home/test/stack"
+STACK_DIR="${STACK_DIR:-/home/test/stack}"
+PROJECT_NAME="${PROJECT_NAME:-stack}"
+BACKUP_DIR="${BACKUP_DIR:-/opt/stack-backups/${PROJECT_NAME}}"
+KEEP_DAYS="${KEEP_DAYS:-14}"
+
+compose_dir="$STACK_DIR"
 compose_file="$compose_dir/docker-compose.yml"
 compose_env="$compose_dir/.env"
-backup_root="/opt/stack-backups/${stack_name}"
 timestamp="$(date +%Y%m%d-%H%M)"
 workdir="$(mktemp -d)"
 
 cleanup() { rm -rf "$workdir"; }
 trap cleanup EXIT
 
-mkdir -p "$backup_root"
+mkdir -p "$BACKUP_DIR"
 
 # Determine project name
 project_name=""
-if [ -f "$compose_env" ]; then
+if [ -n "$PROJECT_NAME" ]; then
+  project_name="$PROJECT_NAME"
+elif [ -f "$compose_env" ]; then
   project_name="$(grep -E '^COMPOSE_PROJECT_NAME=' "$compose_env" | head -1 | cut -d= -f2-)"
 fi
 if [ -z "$project_name" ]; then
@@ -83,7 +88,7 @@ while IFS= read -r v; do
 done < "$workdir/volumes.txt"
 
 # Final bundle
-tar czf "$backup_root/stack-${timestamp}.tar.gz" -C "$workdir" .
+tar czf "$BACKUP_DIR/stack-${timestamp}.tar.gz" -C "$workdir" .
 
 # Retention: keep 14 days
-find "$backup_root" -type f -name "stack-*.tar.gz" -mtime +14 -delete
+find "$BACKUP_DIR" -type f -name "stack-*.tar.gz" -mtime +"$KEEP_DAYS" -delete

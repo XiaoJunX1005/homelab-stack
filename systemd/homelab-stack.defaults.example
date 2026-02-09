@@ -1,0 +1,11 @@
+# Shared defaults for systemd units
+# Copy to /etc/default/homelab-stack and adjust for your host
+
+CFG_DIR=/home/test/.config
+STACK_DIR=/home/test/stack
+BACKUP_DIR=/opt/stack-backups/stack
+PROJECT_NAME=stack
+KEEP_DAYS=14
+
+# Docker prune settings
+PRUNE_UNTIL_HOURS=168

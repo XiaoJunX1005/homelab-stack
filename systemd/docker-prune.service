@@ -1,0 +1,8 @@
+[Unit]
+Description=Prune unused Docker images older than N days
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/homelab-stack
+ExecStart=/usr/bin/docker image prune -a -f --filter "until=${PRUNE_UNTIL_HOURS:-168}h"
