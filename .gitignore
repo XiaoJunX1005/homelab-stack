@@ -45,6 +45,9 @@ compose.rendered.yml
 backups/
 _restore/
 
+# stirling-pdf data
+stirling-data/
+
 # backups / restore staging (do not commit)
 backups/
 _restore/

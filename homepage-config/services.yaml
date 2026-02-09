@@ -30,6 +30,11 @@
         href: http://kuma.local
         description: 監控 / 告警
 
+    - Stirling PDF:
+        icon: file-text
+        href: http://pdf.local
+        description: PDF 工具
+
     - Docker Host (VM):
         icon: ubuntu
         href: http://10.1.2.19

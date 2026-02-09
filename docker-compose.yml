@@ -125,6 +125,26 @@ services:
     extra_hosts:
       - "kuma.local:${HOST_IP}"
 
+  stirling-pdf:
+    # image: stirlingtools/stirling-pdf:latest-fat
+    image: stirlingtools/stirling-pdf:latest
+    container_name: stirling-pdf
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - ${CFG_DIR}/stirling.env
+    volumes:
+      - ./stirling-data/configs:/configs
+      - ./stirling-data/logs:/logs
+      - ./stirling-data/pipeline:/pipeline
+      - ./stirling-data/tessdata:/usr/share/tessdata
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
 volumes:
   portainer_data:
   npm_data:
