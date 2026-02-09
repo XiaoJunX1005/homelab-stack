@@ -15,6 +15,12 @@ workdir="$(mktemp -d)"
 cleanup() { rm -rf "$workdir"; }
 trap cleanup EXIT
 
+if [ ! -f "$compose_env" ]; then
+  echo "ERROR: missing $compose_env" >&2
+  echo "Hint: cp $compose_dir/.env.example $compose_env && edit HOST_IP/CFG_DIR" >&2
+  exit 1
+fi
+
 mkdir -p "$BACKUP_DIR"
 
 # Determine project name
@@ -29,22 +35,19 @@ if [ -z "$project_name" ]; then
 fi
 export COMPOSE_PROJECT_NAME="$project_name"
 
-compose_args=(
+COMPOSE=(
+  docker compose
   --project-directory "$compose_dir"
   --env-file "$compose_env"
   -f "$compose_file"
   -p "$project_name"
 )
 
-compose() {
-  docker compose "${compose_args[@]}" "$@"
-}
-
 # Pack compose directory (exclude .git and local backups)
 tar --exclude='.git' --exclude='backups' -czf "$workdir/compose.tar.gz" -C "$compose_dir" .
 
 # Resolve volume names from docker compose config (YAML)
-compose config | awk -v project="$project_name" '
+"${COMPOSE[@]}" config | awk -v project="$project_name" '
 BEGIN { in_vol=0; key=""; name=""; }
 # enter volumes section
 /^volumes:/ { in_vol=1; next; }
