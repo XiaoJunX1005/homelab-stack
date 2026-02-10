@@ -11,7 +11,7 @@
 
     - Nginx Proxy Manager:
         icon: nginx
-        href: http://npm.lan:81/
+        href: http://npm.lan
         description: 反向代理管理
 
 - Containers:
