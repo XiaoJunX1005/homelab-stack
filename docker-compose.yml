@@ -36,6 +36,12 @@ services:
           - home.local
           - portainer.local
           - kuma.local
+          - npm.lan
+          - adguard.lan
+          - home.lan
+          - portainer.lan
+          - kuma.lan
+          - pdf.lan
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
   
@@ -51,7 +57,7 @@ services:
     group_add:
       - "984"
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: home.local,${HOST_IP},${HOST_IP}:3000,localhost,127.0.0.1
+      HOMEPAGE_ALLOWED_HOSTS: home.local,home.lan,${HOST_IP},${HOST_IP}:3000,localhost,127.0.0.1
     volumes:
       - ./homepage-config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -75,6 +81,12 @@ services:
       - "home.local:${HOST_IP}"
       - "portainer.local:${HOST_IP}"
       - "kuma.local:${HOST_IP}"
+      - "home.lan:${HOST_IP}"
+      - "portainer.lan:${HOST_IP}"
+      - "kuma.lan:${HOST_IP}"
+      - "pdf.lan:${HOST_IP}"
+      - "adguard.lan:${HOST_IP}"
+      - "npm.lan:${HOST_IP}"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 

@@ -6,6 +6,7 @@
 
 - [1. 服務總覽](#1-服務總覽)
 - [2. 架構與網路](#2-架構與網路)
+- [2.4 Internal DNS (.lan)](#24-internal-dns-lan)
 - [2.3 Internal DNS / pdf.lan](#23-internal-dns--pdflan)
 - [3. 目錄結構](#3-目錄結構)
 - [4. 需求與前置條件](#4-需求與前置條件)
@@ -87,6 +88,25 @@ NPM 反代設定：
 - Forward Hostname: `stirling-pdf`
 - Forward Port: `8080`
 - 建議開啟登入或使用 NPM Access List
+
+### 2.4 Internal DNS (.lan)
+
+NPM 只管反代，DNS 需由 AdGuard 解析到主機 IP。
+
+在 AdGuard Home -> DNS rewrites 建立：
+
+- `npm.lan` -> `<HOST_IP>`
+- `adguard.lan` -> `<HOST_IP>`
+- `home.lan` -> `<HOST_IP>`
+- `kuma.lan` -> `<HOST_IP>`
+- `pdf.lan` -> `<HOST_IP>`
+- `portainer.lan` -> `<HOST_IP>`
+
+如果要使用 `http://npm.lan` 進 NPM UI，請在 NPM 加一個 Proxy Host：
+
+- Domain: `npm.lan`
+- Forward Hostname: `npm`
+- Forward Port: `81`
 
 ## 3. 目錄結構
 
