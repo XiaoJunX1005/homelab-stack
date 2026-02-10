@@ -46,7 +46,15 @@ backups/
 _restore/
 
 # stirling-pdf data
-stirling-data/
+stirling-data/*
+!stirling-data/**/.gitkeep
+
+# adguardhome data
+adguardhome/work/*
+adguardhome/conf/*
+adguardhome/**/AdGuardHome.yaml
+!adguardhome/work/.gitkeep
+!adguardhome/conf/.gitkeep
 
 # backups / restore staging (do not commit)
 backups/

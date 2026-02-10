@@ -6,6 +6,7 @@
 
 - [1. 服務總覽](#1-服務總覽)
 - [2. 架構與網路](#2-架構與網路)
+- [2.3 Internal DNS / pdf.lan](#23-internal-dns--pdflan)
 - [3. 目錄結構](#3-目錄結構)
 - [4. 需求與前置條件](#4-需求與前置條件)
 - [5. 安裝與部署](#5-安裝與部署)
@@ -34,6 +35,11 @@
 - **Uptime Kuma** (`louislam/uptime-kuma:1`)
   - Compose publish：`http://<HOST_IP>:3001`（目前 `10.1.2.19:3001`）
   - 可透過 NPM 反代 `http://kuma.local`
+- **AdGuard Home** (`adguard/adguardhome`)
+  - 初始化入口：`http://<HOST_IP>:3002`
+  - 內網 DNS 指向：`<HOST_IP>:53`
+- **Stirling PDF** (`stirlingtools/stirling-pdf`)
+  - 建議透過 NPM 反代：`http://pdf.lan`
 - **Watchtower** (`containrrr/watchtower`)
   - 每日 04:00 依排程檢查更新（僅更新有 label 的容器）
 - **kuma-push-relay** (`python:3.12-alpine`)
@@ -64,6 +70,23 @@ watchtower
 - `home.local` -> `<HOST_IP>`
 - `portainer.local` -> `<HOST_IP>`
 - `kuma.local` -> `<HOST_IP>`
+
+### 2.3 Internal DNS / pdf.lan
+
+若你不想每台電腦改 hosts，可使用 AdGuard Home 做內部 DNS：
+
+- AdGuard 初始化入口：`http://<HOST_IP>:3002`
+- 在 AdGuard → `DNS rewrites` 新增：
+  - `pdf.lan` -> `<HOST_IP>`
+  - （可選）`*.lan` -> `<HOST_IP>`
+- Upstream DNS 請填公司原本 DNS（Windows 可用 `ipconfig /all` 查）
+
+NPM 反代設定：
+
+- Domain: `pdf.lan`
+- Forward Hostname: `stirling-pdf`
+- Forward Port: `8080`
+- 建議開啟登入或使用 NPM Access List
 
 ## 3. 目錄結構
 

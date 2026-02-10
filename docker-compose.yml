@@ -78,6 +78,25 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "${HOST_IP}:53:53/tcp"
+      - "${HOST_IP}:53:53/udp"
+      - "${HOST_IP}:3002:3000/tcp"
+    volumes:
+      - ./adguardhome/work:/opt/adguardhome/work
+      - ./adguardhome/conf:/opt/adguardhome/conf
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
@@ -135,8 +154,11 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    env_file:
-      - ${CFG_DIR}/stirling.env
+    environment:
+      DISABLE_ADDITIONAL_FEATURES: "false"
+      SECURITY_ENABLELOGIN: "true"
+      SECURITY_INITIALLOGIN_USERNAME: "admin"
+      SECURITY_INITIALLOGIN_PASSWORD: "PLEASE_CHANGE_ME"
     volumes:
       - ./stirling-data/configs:/configs
       - ./stirling-data/logs:/logs
