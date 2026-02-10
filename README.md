@@ -27,15 +27,15 @@
 以下以 `docker-compose.yml` 為準：
 
 - **Homepage** (`ghcr.io/gethomepage/homepage`)
-  - 建議透過 NPM 反代：`http://home.local`
+  - 建議透過 NPM 反代：`http://home.lan`
 - **Nginx Proxy Manager** (`jc21/nginx-proxy-manager`)
   - 管理介面：`http://<HOST_IP>:81`（目前 compose 綁定 `10.1.2.19:81`）
 - **Portainer CE** (`portainer/portainer-ce`)
   - 目前沒有 publish `9000`，僅 docker network 內可達
-  - 管理入口：透過 NPM 反代 `http://portainer.local`
+  - 管理入口：透過 NPM 反代 `http://portainer.lan`
 - **Uptime Kuma** (`louislam/uptime-kuma:1`)
   - Compose publish：`http://<HOST_IP>:3001`（目前 `10.1.2.19:3001`）
-  - 可透過 NPM 反代 `http://kuma.local`
+  - 可透過 NPM 反代 `http://kuma.lan`
 - **AdGuard Home** (`adguard/adguardhome`)
   - 初始化入口：`http://<HOST_IP>:3002`
   - 內網 DNS 指向：`<HOST_IP>:53`
@@ -68,9 +68,9 @@ watchtower
 
 ### 2.2 DNS / hosts 建議
 
-- `home.local` -> `<HOST_IP>`
-- `portainer.local` -> `<HOST_IP>`
-- `kuma.local` -> `<HOST_IP>`
+- `home.lan` -> `<HOST_IP>`
+- `portainer.lan` -> `<HOST_IP>`
+- `kuma.lan` -> `<HOST_IP>`
 
 ### 2.3 Internal DNS / pdf.lan
 
@@ -89,11 +89,12 @@ NPM 反代設定：
 - Forward Port: `8080`
 - 建議開啟登入或使用 NPM Access List
 
+
 ### 2.4 Internal DNS (.lan)
 
-NPM 只管反代，DNS 需由 AdGuard 解析到主機 IP。
+AdGuard Home 負責 DNS（DNS rewrites），NPM 只負責反向代理（80/443）。
 
-在 AdGuard Home -> DNS rewrites 建立：
+請在 AdGuard Home -> DNS rewrites 建立：
 
 - `npm.lan` -> `<HOST_IP>`
 - `adguard.lan` -> `<HOST_IP>`
@@ -102,11 +103,14 @@ NPM 只管反代，DNS 需由 AdGuard 解析到主機 IP。
 - `pdf.lan` -> `<HOST_IP>`
 - `portainer.lan` -> `<HOST_IP>`
 
-如果要使用 `http://npm.lan` 進 NPM UI，請在 NPM 加一個 Proxy Host：
+入口整理：
 
-- Domain: `npm.lan`
-- Forward Hostname: `npm`
-- Forward Port: `81`
+- NPM 管理介面：`http://npm.lan`（需在 NPM 內再加一個 Proxy Host：`npm.lan` -> `http://npm:81`）
+- Homepage：`http://home.lan`
+- Uptime Kuma：`http://kuma.lan`
+- Stirling PDF：`http://pdf.lan`
+- AdGuard Home：`http://adguard.lan`（或 `http://<HOST_IP>:3002`）
+- Portainer：`http://portainer.lan`
 
 ## 3. 目錄結構
 
@@ -278,7 +282,7 @@ getent group docker
 
 Proxy Host：
 
-- Domain Names：`home.local`
+- Domain Names：`home.lan`
 - Scheme：`http`
 - Forward Hostname / IP：`homepage`
 - Forward Port：`3000`
@@ -287,7 +291,7 @@ Proxy Host：
 
 ### 7.2 Uptime Kuma
 
-- Domain Names：`kuma.local`
+- Domain Names：`kuma.lan`
 - Forward Hostname / IP：`uptime-kuma`
 - Forward Port：`3001`
 
@@ -295,9 +299,9 @@ Proxy Host：
 
 目前 `portainer` 沒 publish `9000`，所以只能透過 NPM 代理。完成後可用：
 
-- `http://portainer.local`
+- `http://portainer.lan`
 
-> 注意：如果沒有 SSL 憑證，不要把 `http://xxx.local` 改成 `https://xxx.local`。
+> 注意：如果沒有 SSL 憑證，不要把 `http://xxx.lan` 改成 `https://xxx.lan`。
 
 ## 8. 更新策略（Watchtower）
 

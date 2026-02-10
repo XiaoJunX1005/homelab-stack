@@ -17,22 +17,22 @@
 - Containers:
     - Portainer:
         icon: portainer
-        href: http://portainer.local
+        href: http://portainer.lan
         description: 容器管理
 
     - Homepage:
         icon: homepage
-        href: http://home.local
+        href: http://home.lan
         description: Lab 首頁
 
     - Uptime Kuma:
         icon: uptime-kuma
-        href: http://kuma.local
+        href: http://kuma.lan
         description: 監控 / 告警
 
     - Stirling PDF:
         icon: mdi-file-pdf-box
-        href: http://pdf.local
+        href: http://pdf.lan
         description: PDF 工具
 
     - Docker Host (VM):

@@ -9,7 +9,7 @@ from urllib.request import urlopen, Request
 HOST = "0.0.0.0"
 PORT = int(os.environ.get("PORT", "8080"))
 KUMA_PUSH_TOKEN = os.environ.get("KUMA_PUSH_TOKEN", "").strip()
-KUMA_BASE_URL = os.environ.get("KUMA_BASE_URL", "http://kuma.local/api/push/").rstrip("/") + "/"
+KUMA_BASE_URL = os.environ.get("KUMA_BASE_URL", "http://kuma.lan/api/push/").rstrip("/") + "/"
 DEFAULT_UP_MSG = os.environ.get("DEFAULT_UP_MSG", "watchtower_ok")
 DEFAULT_DOWN_MSG = os.environ.get("DEFAULT_DOWN_MSG", "watchtower_failed")
 TIMEOUT_SECONDS = float(os.environ.get("KUMA_TIMEOUT", "5"))

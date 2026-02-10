@@ -14,7 +14,7 @@ set -euo pipefail
 #   ./backup.sh
 #   ./backup.sh --no-volumes
 #   ./backup.sh --dest /path/to/backups --keep 14
-#   ./backup.sh --kuma-push-url "http://kuma.local/api/push/xxx"
+#   ./backup.sh --kuma-push-url "http://kuma.lan/api/push/xxx"
 #
 # Output:
 #   Prints archive filename as the LAST line (方便腳本串接)

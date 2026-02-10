@@ -33,9 +33,6 @@ services:
     networks:
       default:
         aliases:
-          - home.local
-          - portainer.local
-          - kuma.local
           - npm.lan
           - adguard.lan
           - home.lan
@@ -57,7 +54,7 @@ services:
     group_add:
       - "984"
     environment:
-      HOMEPAGE_ALLOWED_HOSTS: home.local,home.lan,${HOST_IP},${HOST_IP}:3000,localhost,127.0.0.1
+      HOMEPAGE_ALLOWED_HOSTS: home.lan,${HOST_IP},${HOST_IP}:3000,localhost,127.0.0.1
     volumes:
       - ./homepage-config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -78,9 +75,6 @@ services:
     volumes:
       - uptimekuma_data:/app/data
     extra_hosts:
-      - "home.local:${HOST_IP}"
-      - "portainer.local:${HOST_IP}"
-      - "kuma.local:${HOST_IP}"
       - "home.lan:${HOST_IP}"
       - "portainer.lan:${HOST_IP}"
       - "kuma.lan:${HOST_IP}"
@@ -123,7 +117,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
-      - "kuma.local:${HOST_IP}"
+      - "kuma.lan:${HOST_IP}"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     command: >
@@ -154,7 +148,7 @@ services:
       - ./kuma-push-relay:/app:ro
     command: ["python", "/app/app.py"]
     extra_hosts:
-      - "kuma.local:${HOST_IP}"
+      - "kuma.lan:${HOST_IP}"
 
   stirling-pdf:
     # image: stirlingtools/stirling-pdf:latest-fat

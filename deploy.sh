@@ -100,9 +100,9 @@ if echo "$services" | grep -qx kuma-push-relay; then
 fi
 
 log "URLs (adjust as needed)"
-echo "Homepage:  http://home.local"
+echo "Homepage:  http://home.lan"
 echo "NPM:       http://${HOST_IP}:81"
 echo "Kuma:      http://${HOST_IP}:3001"
-echo "Portainer: http://portainer.local (via NPM)"
+echo "Portainer: http://portainer.lan (via NPM)"
 echo
 echo "Next (systemd timers): sudo ./deploy-systemd.sh"
