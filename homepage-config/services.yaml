@@ -1,20 +1,25 @@
 - Infra:
     - Proxmox:
         icon: proxmox
-        href: https://10.1.2.103:8006
+        href: https://proxmox.lan:8006
         description: PVE Web UI
 
     - Synology NAS:
         icon: synology
-        href: http://10.1.2.61:5000
+        href: http://synology.lan:5000
         description: DSM 管理頁
 
     - Nginx Proxy Manager:
         icon: nginx
-        href: http://npm.lan:81/
+        href: http://npm.lan:81
         description: 反向代理管理
 
 - Containers:
+    - AdGuard Home:
+        icon: mdi-shield-check
+        href: http://adguard.lan
+        description: DNS / 廣告阻擋
+
     - Portainer:
         icon: portainer
         href: http://portainer.lan
@@ -37,5 +42,5 @@
 
     - Docker Host (VM):
         icon: mdi-ubuntu
-        href: http://10.1.2.19
+        href: http://dockerhost.lan
         description: Ubuntu VM
