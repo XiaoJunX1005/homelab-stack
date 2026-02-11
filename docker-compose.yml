@@ -164,7 +164,7 @@ services:
       DISABLE_ADDITIONAL_FEATURES: "false"
       SECURITY_ENABLELOGIN: "true"
       SECURITY_INITIALLOGIN_USERNAME: "admin"
-      SECURITY_INITIALLOGIN_PASSWORD: "PLEASE_CHANGE_ME"
+      SECURITY_INITIALLOGIN_PASSWORD: "P@ssw0rd"
     volumes:
       - ./stirling-data/configs:/configs
       - ./stirling-data/logs:/logs
@@ -177,5 +177,4 @@ volumes:
   portainer_data:
   npm_data:
   npm_letsencrypt:
-  homepage_data:
   uptimekuma_data:

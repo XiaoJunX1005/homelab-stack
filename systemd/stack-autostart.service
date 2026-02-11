@@ -1,0 +1,13 @@
+[Unit]
+Description=Homelab Stack - controlled autostart (docker compose)
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/homelab-stack
+ExecStart=/usr/local/sbin/stack-autostart.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

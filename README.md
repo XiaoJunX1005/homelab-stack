@@ -21,6 +21,7 @@
 - [13. 常見問題與排錯](#13-常見問題與排錯)
 - [14. 安全注意事項](#14-安全注意事項)
 - [15. 快速指令小抄](#15-快速指令小抄)
+- [16. 驗收 checklist](#16-驗收-checklist)
 
 ## 1. 服務總覽
 
@@ -29,12 +30,12 @@
 - **Homepage** (`ghcr.io/gethomepage/homepage`)
   - 建議透過 NPM 反代：`http://home.lan`
 - **Nginx Proxy Manager** (`jc21/nginx-proxy-manager`)
-  - 管理介面：`http://<HOST_IP>:81`（目前 compose 綁定 `10.1.2.19:81`）
+  - 管理介面：`http://<HOST_IP>:81`（compose 綁定 `${HOST_IP}:81`）
 - **Portainer CE** (`portainer/portainer-ce`)
   - 目前沒有 publish `9000`，僅 docker network 內可達
   - 管理入口：透過 NPM 反代 `http://portainer.lan`
 - **Uptime Kuma** (`louislam/uptime-kuma:1`)
-  - Compose publish：`http://<HOST_IP>:3001`（目前 `10.1.2.19:3001`）
+  - Compose publish：`http://<HOST_IP>:3001`（compose 綁定 `${HOST_IP}:3001`）
   - 可透過 NPM 反代 `http://kuma.lan`
 - **AdGuard Home** (`adguard/adguardhome`)
   - 初始化入口：`http://<HOST_IP>:3002`
@@ -46,8 +47,7 @@
 - **kuma-push-relay** (`python:3.12-alpine`)
   - 本機 `127.0.0.1:18080` 提供 `/up` / `/down`，轉發到 Kuma push
 
-> 注意：`<HOST_IP>` 目前在 compose 寫死 `10.1.2.19`，請改成你的 VM IP。
-> 可選優化：把 compose 的 `10.1.2.19` 改成 `${HOST_IP}`，並在 `.env` 設定 `HOST_IP=你的IP`。
+> 注意：請在 `.env` 設定 `HOST_IP=你的 VM IP`，所有對外 ports 皆綁定 `${HOST_IP}`。
 
 ## 2. 架構與網路
 
@@ -103,9 +103,11 @@ AdGuard Home 負責 DNS（DNS rewrites），NPM 只負責反向代理（80/443�
 - `pdf.lan` -> `<HOST_IP>`
 - `portainer.lan` -> `<HOST_IP>`
 
+你也可以用萬用規則（例如 `*.lan` -> `<HOST_IP>`）簡化管理；DNS 仍由 AdGuard 解析，NPM 僅負責反代。
+
 入口整理：
 
-- NPM 管理介面：`http://npm.lan`（需在 NPM 內再加一個 Proxy Host：`npm.lan` -> `http://npm:81`）
+- NPM 管理介面：`http://npm.lan:81`（需在 NPM 內再加一個 Proxy Host：`npm.lan` -> `http://npm:81`）
 - Homepage：`http://home.lan`
 - Uptime Kuma：`http://kuma.lan`
 - Stirling PDF：`http://pdf.lan`
@@ -130,13 +132,15 @@ AdGuard Home 負責 DNS（DNS rewrites），NPM 只負責反向代理（80/443�
 ├─ docs/
 │  └─ systemd-dropins.md
 ├─ scripts/
-│  └─ stack-backup.sh
+│  ├─ stack-backup.sh
+│  └─ stack-autostart.sh
 ├─ systemd/
+│  ├─ stack-autostart.service
 │  ├─ stack-backup.service
 │  ├─ stack-backup.timer
-│  └─ stack-backup.service.d.override.conf
 │  ├─ docker-prune.service
-│  └─ docker-prune.timer
+│  ├─ docker-prune.timer
+│  └─ stack-backup.service.d.override.conf
 ├─ homepage-config/
 │  ├─ settings.yaml
 │  ├─ services.yaml
@@ -220,6 +224,49 @@ sudo ./deploy-systemd.sh
 ```
 
 安裝後請編輯 `/etc/default/homelab-stack`（必填：`HOST_IP` / `CFG_DIR` / `STACK_DIR`）。
+
+
+### 5.3.2 開機自動依序啟動（systemd stack-autostart）
+
+`restart: unless-stopped` 能讓容器在 VM/主機重啟後自動回來，但 **不保證啟動順序**；若你有「DNS/反代 → 應用」這類依賴關係，建議用 systemd 在開機時跑一次「按順序啟動」的腳本（infra → data → app）。
+
+本 repo 提供 `stack-autostart`（開機自動 `docker compose up -d`）：
+
+- 腳本：`scripts/stack-autostart.sh`（會讀 `/etc/default/homelab-stack` 的 `STACK_DIR`）
+- systemd unit：`systemd/stack-autostart.service`
+- override 順序檔（主機上）：`/etc/stack-autostart/override-order.conf`（可選，指定多個 compose 的啟動順序）
+
+#### 安裝（一次性）
+
+```bash
+sudo install -m 0755 scripts/stack-autostart.sh /usr/local/sbin/stack-autostart.sh
+sudo install -m 0644 systemd/stack-autostart.service /etc/systemd/system/stack-autostart.service
+
+sudo mkdir -p /etc/stack-autostart
+sudo systemctl daemon-reload
+sudo systemctl enable --now stack-autostart.service
+```
+
+#### 指定「絕對順序」（最穩）
+
+（可選）建立 `/etc/stack-autostart/override-order.conf`，每行一個 compose 檔的 **絕對路徑**（照你要的順序排列）：
+
+```conf
+# infra
+/opt/homelab-stack/docker-compose.yml
+
+# app（範例：若你拆第二份 compose）
+#/opt/another-stack/docker-compose.yml
+```
+
+#### 驗證
+
+```bash
+systemctl status stack-autostart --no-pager
+journalctl -u stack-autostart -b --no-pager
+docker ps
+```
+
 
 ### 5.4 檢查
 
@@ -540,3 +587,20 @@ sudo systemctl start stack-backup.service
 # 還原（會覆寫 volumes）
 # 參考第 11 章
 ```
+
+## 16. 驗收 checklist
+
+Windows（DNS）：
+
+- `nslookup home.lan <AdGuard_IP>`
+- `nslookup npm.lan <AdGuard_IP>`
+- `nslookup adguard.lan <AdGuard_IP>`
+- `nslookup pdf.lan <AdGuard_IP>`
+
+HTTP：
+
+- `curl -I http://home.lan`
+- `curl -I http://npm.lan:81`
+- `curl -I http://adguard.lan`
+- `curl -I http://pdf.lan`
+
